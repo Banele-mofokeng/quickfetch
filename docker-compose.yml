@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgis/postgis:15-3.4
+    environment:
+      POSTGRES_DB: quickfetch
+      POSTGRES_USER: quickfetch
+      POSTGRES_PASSWORD: quickfetch
+    ports: ["5432:5432"]
+    volumes: ["pg:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quickfetch"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  backend:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://quickfetch:quickfetch@postgres:5432/quickfetch
+      REDIS_URL: redis://redis:6379
+      EVOLUTION_API_URL: https://evolution-api-production-0c67.up.railway.app
+    ports: ["8001:8000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  dashboard:
+    image: nginx:alpine
+    volumes: ["./frontend:/usr/share/nginx/html:ro"]
+    ports: ["3000:80"]
+    depends_on: [backend]
+
+volumes:
+  pg:

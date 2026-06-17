@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuickFetch — Dispatch</title>
+<style>
+  :root{
+    --ink:#161a23; --ink-2:#222836; --paper:#f6f3ec; --card:#fffdf8;
+    --line:#e3ddcf; --muted:#6f6a5c;
+    --amber:#ef7c10; --amber-ink:#7a3d00;
+    --green:#2f7d57; --red:#c2412d; --blue:#2d5fb0;
+    --mono:"SFMono-Regular",ui-monospace,"Roboto Mono",Menlo,monospace;
+    --grotesk:"Arial Narrow","Helvetica Neue",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px}
+  header{background:var(--ink);color:var(--paper);padding:14px 22px;
+    display:flex;align-items:baseline;gap:14px;position:sticky;top:0;z-index:5}
+  header h1{font-family:var(--grotesk);font-weight:700;letter-spacing:.04em;
+    text-transform:uppercase;font-size:20px;margin:0}
+  header .tag{color:var(--amber);font-family:var(--grotesk);text-transform:uppercase;
+    letter-spacing:.18em;font-size:11px}
+  header .clock{margin-left:auto;font-family:var(--mono);font-size:12px;opacity:.7}
+  .wrap{max-width:1200px;margin:0 auto;padding:20px 22px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;
+    background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:22px}
+  .stat{background:var(--card);padding:14px 16px}
+  .stat .n{font-family:var(--mono);font-size:26px;font-variant-numeric:tabular-nums}
+  .stat .l{font-family:var(--grotesk);text-transform:uppercase;letter-spacing:.1em;
+    font-size:11px;color:var(--muted);margin-top:2px}
+  .stat.alert .n{color:var(--amber)}
+  h2{font-family:var(--grotesk);text-transform:uppercase;letter-spacing:.12em;
+    font-size:13px;color:var(--muted);margin:26px 0 10px;font-weight:700}
+  .grid{display:grid;grid-template-columns:2.4fr 1fr;gap:22px;align-items:start}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .order{padding:13px 16px;border-bottom:1px solid var(--line)}
+  .order:last-child{border-bottom:none}
+  .order .top{display:flex;gap:10px;align-items:baseline}
+  .id{font-family:var(--mono);color:var(--muted);font-size:12px}
+  .shop{font-weight:600}
+  .items{color:var(--muted);font-size:13px;margin:3px 0 8px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .money{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px}
+  .badge{font-family:var(--grotesk);text-transform:uppercase;letter-spacing:.08em;
+    font-size:10px;padding:3px 7px;border-radius:999px;border:1px solid currentColor;line-height:1}
+  .b-cash{color:var(--green)} .b-prepay{color:var(--blue)}
+  .b-over{color:var(--red);background:#fae9e6}
+  .status{font-family:var(--grotesk);text-transform:uppercase;letter-spacing:.06em;
+    font-size:11px;padding:3px 9px;border-radius:6px;background:var(--ink-2);color:var(--paper)}
+  .status.s-PENDING_PAYMENT{background:#8a6d1f}
+  .status.s-QUEUED{background:var(--amber);color:#fff}
+  .status.s-AWAITING_APPROVAL{background:var(--red)}
+  .status.s-DELIVERED,.status.s-COMPLETED{background:var(--green)}
+  .assign{margin-top:9px;display:flex;gap:6px}
+  select,button{font:inherit;border:1px solid var(--line);border-radius:7px;padding:6px 9px;background:#fff}
+  button{background:var(--ink);color:var(--paper);border-color:var(--ink);cursor:pointer;font-weight:600}
+  button:hover{background:var(--amber);border-color:var(--amber)}
+  .drv{display:flex;align-items:center;gap:9px;padding:11px 16px;border-bottom:1px solid var(--line)}
+  .drv:last-child{border-bottom:none}
+  .dot{width:9px;height:9px;border-radius:50%;background:#c9c2b1;flex:none}
+  .dot.on{background:var(--green)} .dot.job{background:var(--amber)}
+  .drv .meta{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .empty{padding:22px 16px;color:var(--muted);font-style:italic}
+  .driver-name{font-size:12px;color:var(--muted);font-family:var(--mono)}
+</style>
+</head>
+<body>
+<header>
+  <h1>QuickFetch</h1><span class="tag">Dispatch</span>
+  <span class="clock" id="clock"></span>
+</header>
+<div class="wrap">
+  <div class="stats" id="stats"></div>
+  <div class="grid">
+    <div>
+      <h2>Live orders</h2>
+      <div class="card" id="orders"><div class="empty">Loading…</div></div>
+    </div>
+    <div>
+      <h2>Drivers</h2>
+      <div class="card" id="drivers"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Point this at your API. Same host on :8000 by default.
+const API = (location.hostname ? `http://${location.hostname}:8000` : "http://localhost:8000");
+const LIVE = ["PENDING_PAYMENT","QUEUED","ASSIGNED","EN_ROUTE_TO_SHOP","AT_SHOP",
+              "AWAITING_APPROVAL","PURCHASED","EN_ROUTE_TO_CUSTOMER","ARRIVED"];
+let drivers = [];
+
+const rand = c => "R" + (c==null ? "—" : Number(c).toFixed(2));
+const money = o => o.actual==null
+  ? `budget ${rand(o.budget)}`
+  : `spent ${rand(o.actual)} / budget ${rand(o.budget)}`;
+
+async function get(p){ const r = await fetch(API+p); if(!r.ok) throw 0; return r.json(); }
+
+async function assign(orderId, sel){
+  const driverId = sel.value; if(!driverId) return;
+  await fetch(`${API}/api/v1/orders/${orderId}/assign?driver_id=${driverId}`, {method:"POST"});
+  refresh();
+}
+
+function driverOptions(){
+  const free = drivers.filter(d => d.available);
+  if(!free.length) return `<option>no drivers free</option>`;
+  return `<option value="">assign driver…</option>` +
+    free.map(d=>`<option value="${d.id}">${d.name}</option>`).join("");
+}
+
+function orderRow(o){
+  const over = o.over_budget ? `<span class="badge b-over">over budget</span>` : "";
+  const pm = o.payment_method==="CASH"
+    ? `<span class="badge b-cash">cash</span>` : `<span class="badge b-prepay">prepaid</span>`;
+  const assign = (o.status==="QUEUED")
+    ? `<div class="assign"><select onchange="assign(${o.id}, this)">${driverOptions()}</select></div>` : "";
+  const drv = o.driver ? `<span class="driver-name">${o.driver.name}</span>` : "";
+  return `<div class="order">
+    <div class="top"><span class="id">#${o.id}</span><span class="shop">${o.shop_name}</span>
+      <span style="margin-left:auto" class="status s-${o.status}">${o.status.replace(/_/g," ")}</span></div>
+    <div class="items">${o.items||""}</div>
+    <div class="row"><span class="money">${money(o)}</span>${pm}${over}${drv}</div>
+    ${assign}
+  </div>`;
+}
+
+function statBox(n,l,alert){ return `<div class="stat ${alert?'alert':''}"><div class="n">${n}</div><div class="l">${l}</div></div>`; }
+
+async function refresh(){
+  try{
+    const [d, orders, drv] = await Promise.all([
+      get("/api/v1/admin/dashboard"),
+      get("/api/v1/orders/?limit=80"),
+      get("/api/v1/drivers/"),
+    ]);
+    drivers = drv;
+    document.getElementById("stats").innerHTML =
+      statBox(d.needs_assignment, "needs assignment", d.needs_assignment>0) +
+      statBox(d.awaiting_payment, "awaiting payment", d.awaiting_payment>0) +
+      statBox(d.active_orders, "active") +
+      statBox(d.drivers_available + "/" + d.drivers_total, "drivers free") +
+      statBox(d.completed_today, "done today") +
+      statBox(rand(d.fee_revenue_today*100), "fees today");
+
+    const live = orders.filter(o => LIVE.includes(o.status));
+    document.getElementById("orders").innerHTML = live.length
+      ? live.map(orderRow).join("") : `<div class="empty">No live orders right now.</div>`;
+
+    document.getElementById("drivers").innerHTML = drivers.length
+      ? drivers.map(x=>{
+          const cls = x.status==="AVAILABLE"&&x.available ? "on" : x.status==="ON_JOB" ? "job" : "";
+          const ago = x.last_ping ? new Date(x.last_ping).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "—";
+          return `<div class="drv"><span class="dot ${cls}"></span><span>${x.name}</span>
+            <span class="meta">${x.vehicle} · ${x.total_deliveries}✓ · ${ago}</span></div>`;
+        }).join("")
+      : `<div class="empty">No drivers yet. Add them via the API.</div>`;
+  }catch(e){
+    document.getElementById("orders").innerHTML = `<div class="empty">Can't reach the API at ${API}. Is the backend running?</div>`;
+  }
+}
+
+setInterval(()=>document.getElementById("clock").textContent = new Date().toLocaleTimeString(), 1000);
+refresh(); setInterval(refresh, 5000);
+</script>
+</body>
+</html>
