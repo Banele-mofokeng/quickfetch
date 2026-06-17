@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, BackgroundTasks, Header, HTTPException
+from starlette.requests import ClientDisconnect
 import json
 
 from app.services.whatsapp import WhatsAppService
@@ -11,7 +12,10 @@ pay = PaymentService()
 
 @router.post("/whatsapp")
 async def whatsapp_webhook(request: Request, bg: BackgroundTasks):
-    data = await request.json()
+    try:
+        data = await request.json()
+    except (ClientDisconnect, Exception):
+        return {"status": "ok"}
     bg.add_task(wa.handle_webhook, data)
     return {"status": "ok"}
 
