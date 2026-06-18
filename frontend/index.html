@@ -88,7 +88,7 @@
 
 <script>
 // Point this at your API. Same host on :8000 by default.
-const API = (location.hostname ? `http://${location.hostname}:8000` : "http://localhost:8000");
+const API = "https://quickfetch-production.up.railway.app";
 const LIVE = ["PENDING_PAYMENT","QUEUED","ASSIGNED","EN_ROUTE_TO_SHOP","AT_SHOP",
               "AWAITING_APPROVAL","PURCHASED","EN_ROUTE_TO_CUSTOMER","ARRIVED"];
 let drivers = [];
