@@ -16,10 +16,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="QuickFetch API", version="1.0.0", lifespan=lifespan)
 
+_origins = (["*"] if settings.FRONTEND_URL == "*"
+            else [settings.FRONTEND_URL, "http://localhost:3000"])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL, "http://localhost:3000"],
-    allow_credentials=True,
+    allow_origins=_origins,
+    allow_credentials=settings.FRONTEND_URL != "*",
     allow_methods=["*"],
     allow_headers=["*"],
 )
