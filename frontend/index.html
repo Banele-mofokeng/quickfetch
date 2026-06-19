@@ -88,7 +88,9 @@
 
 <script>
 // Point this at your API. Same host on :8000 by default.
-const API = "https://quickfetch-production.up.railway.app";
+const API = location.hostname.includes("uat")
+  ? "https://quickfetch-uat.up.railway.app"
+  : "https://quickfetch-production.up.railway.app";
 const LIVE = ["PENDING_PAYMENT","QUEUED","ASSIGNED","EN_ROUTE_TO_SHOP","AT_SHOP",
               "AWAITING_APPROVAL","PURCHASED","EN_ROUTE_TO_CUSTOMER","ARRIVED"];
 let drivers = [];
